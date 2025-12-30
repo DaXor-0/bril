@@ -77,8 +77,8 @@ def load_json(input_file: Path | None) -> Any:
 def block_id_generator(func_name: str):
     i = 0
     while True:
-        i += 1
         yield f"{func_name}::b{i}"
+        i += 1
 
 def is_label(isntr: Dict[str, Any]) -> bool:
     return "label" in isntr and "op" not in isntr
@@ -204,22 +204,20 @@ def program_name_from_input(input_file: Path | None) -> str:
 
 def cfg_to_dot(blks: BlockInfo, func_name: str, show_instrs: bool = False) -> str:
     lines = []
-    lines.append(f'digraph "{func_name}_CFG" {{')
+    lines.append(f'digraph {func_name} {{')
 
     # Emit nodes
     for block_name, block in blks.label_map.items():
         if show_instrs:
             instrs = "\\l".join(json.dumps(i) for i in block) + "\\l"
-            label = f"{block_name}:\\l{instrs}"
+            lines.append(f'  {block_name} [label="{block_name}:\\l{instrs}"];')
         else:
-            label = block_name
-
-        lines.append(f'  "{block_name}" [label="{label}"];')
+            lines.append(f'  {block_name};')
 
     # Emit edges
     for src, targets in blks.successors.items():
         for tgt in targets:
-            lines.append(f'  "{src}" -> "{tgt}";')
+            lines.append(f'  {src} -> {tgt};')
 
     lines.append("}")
     return "\n".join(lines)
@@ -253,16 +251,11 @@ def main(input_file: Path | None) -> int:
         # Process basc blocks to form a Control Flow Graph (CFG)
         form_cfg(blks)
         logger.info("Formed CFG for function '%s'.", func["name"])
-        print_cfg(blks)
+        if logger.isEnabledFor(logging.INFO):
+            print_cfg(blks)
 
-        if args.output:
-            dot = cfg_to_dot(blks, func["name"])
-            out_name = f"{func['name']}-{prog_name}.dot"
-
-            with open(out_name, "w", encoding="utf-8") as f:
-                f.write(dot)
-
-            logger.info("Wrote CFG to %s", out_name)
+        dot = cfg_to_dot(blks, func["name"])
+        print(dot)
 
     return 0
 
@@ -275,8 +268,6 @@ if __name__ == "__main__":
         help="Path to the input JSON file (reads stdin if omitted or '-')")
     parser.add_argument("--log-level", type=parse_log_level, default=logging.INFO,
         help="Logging verbosity (debug|info|warning|error|critical or d|i|w|e|c)")
-    parser.add_argument("-o", "--output", action="store_true",
-        help="Emit CFG as Graphviz .dot file(s)")
     args = parser.parse_args()
 
     logging.basicConfig(

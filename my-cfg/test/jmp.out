@@ -1,0 +1,7 @@
+digraph main {
+  main::b0;
+  main::b1;
+  main::somewhere;
+  main::b0 -> main::somewhere;
+  main::b1 -> main::somewhere;
+}
