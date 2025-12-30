@@ -14,3 +14,10 @@ __pycache__
 # vim swap files
 *.swp
 *.swo
+
+# pdf and dot
+*.pdf
+*.dot
+
+*.lock
+*.json
