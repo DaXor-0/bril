@@ -1,0 +1,21 @@
+Control Flow Graph:
+FUNCTION main
+  BLOCK   main::b0
+    SUCCESSORS   main::somewhere
+    PREDECESSORS ∅
+
+  BLOCK   main::b1
+    SUCCESSORS   main::somewhere
+    PREDECESSORS ∅
+
+  BLOCK   main::somewhere
+    SUCCESSORS   ∅
+    PREDECESSORS main::b0, main::b1
+
+digraph main {
+  main::b0;
+  main::b1;
+  main::somewhere;
+  main::b0 -> main::somewhere;
+  main::b1 -> main::somewhere;
+}

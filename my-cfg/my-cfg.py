@@ -51,7 +51,6 @@ class BlockInfo:
     Data class to hold information about basic blocks.
     """
     function_name: str
-    blocks: List[List[Any]]                     # list of blocks, each block is a list of instructions
     label_map: Dict[str, List[Any]]             # block_id -> list of instructions
     label_to_block_id: dict[str, str]           # bril_label -> block_name
     successors: Dict[str, List[str]] = field(default_factory=dict)
@@ -135,7 +134,6 @@ def form_blocks(body: List[Dict[str, Any]], name: str) -> BlockInfo:
 
     return BlockInfo(
         function_name=name,
-        blocks=blocks,
         label_map=label_map,
         label_to_block_id=label_to_block_id
     )
@@ -197,11 +195,6 @@ def print_cfg(blks: BlockInfo, show_instrs: bool = False) -> None:
                 print(f"      {instr}")
         print()
 
-def program_name_from_input(input_file: Path | None) -> str:
-    if input_file is None or str(input_file) == "-":
-        return "stdin"
-    return input_file.stem
-
 def cfg_to_dot(blks: BlockInfo, func_name: str, show_instrs: bool = False) -> str:
     lines = []
     lines.append(f'digraph {func_name} {{')
@@ -223,6 +216,90 @@ def cfg_to_dot(blks: BlockInfo, func_name: str, show_instrs: bool = False) -> st
     return "\n".join(lines)
 
 # ==================================================================
+# DEAD CODE ELIMINATION
+# ==================================================================
+def simple_dce(blks: BlockInfo) -> None:
+    repeat = True
+    pass_num = 0
+    while repeat:
+        repeat = False
+        pass_num += 1
+        logger.debug(f"(Simple DCE, pass number {pass_num})")
+        used_instrs = set()
+        for block in blks.label_map.values():
+            for instr in block:
+                if "args" in instr:
+                    used_instrs.update(instr["args"])
+                    logger.debug(f"(Simple DCE, {pass_num}) Instruction {instr} uses args {instr["args"]}")
+
+        for block in blks.label_map.values():
+            for instr in block:
+                dest = instr.get("dest", [])
+                for d in dest:
+                    if d not in used_instrs:
+                        logger.info(f"(Simple DCE, {pass_num}), Instruction {instr} defines unused dest {d}")
+                        block.remove(instr)
+                        repeat = True
+
+def local_dce(block: List[Dict[str, Any]]) -> None:
+    repeat = True
+    pass_num = 0
+    while repeat:
+        pass_num += 1
+        logger.debug(f"(Local DCE, pass number {pass_num})")
+        repeat = False
+        candidates : Dict[str, Dict[str, Any]] = {}
+        for instr in block:
+            for arg in instr.get("args", []):
+                if arg in candidates:
+                    del candidates[arg]
+
+            if "dest" in instr:
+                for d in instr["dest"]:
+                    if d in candidates:
+                        logger.info(f"(Local DCE, {pass_num}) Destination %s already a candidate, overwriting.", d)
+                        block.remove(candidates[d])
+                        repeat = True
+                    candidates[d] = instr
+
+# ==================================================================
+# OUTPUT PROGRAM IN JSON
+# ==================================================================
+def output_json_prog(program: List[BlockInfo]) -> None:
+    print("{")
+    print('  "functions": [')
+
+    for func_idx, blks in enumerate(program):
+        print("    {")
+        print(f'      "name": "{blks.function_name}",')
+        print('      "instrs": [')
+
+        # Invert label map once
+        block_id_to_label = {
+            block_id: label
+            for label, block_id in blks.label_to_block_id.items()
+        }
+
+        instrs = []
+        for block_id, block in blks.label_map.items():
+            # Reinsert label if this block has one
+            if block_id in block_id_to_label:
+                instrs.append({"label": block_id_to_label[block_id]})
+
+            instrs.extend(block)
+
+        for i, instr in enumerate(instrs):
+            comma = "," if i < len(instrs) - 1 else ""
+            print(f"        {json.dumps(instr)}{comma}")
+
+        print("      ]")
+        comma = "," if func_idx < len(program) - 1 else ""
+        print(f"    }}{comma}")
+
+    print("  ]")
+    print("}")
+
+# ==================================================================
 # MAIN FUNCTION
 # ==================================================================
 def main(input_file: Path | None) -> int:
@@ -236,26 +313,33 @@ def main(input_file: Path | None) -> int:
     except Exception:
         logger.exception("Failed to load JSON from %s", source)
         return 1
-    logger.info("Successfully loaded JSON from %s", source)
+    logger.debug("Successfully loaded JSON from %s", source)
     logger.debug("Loaded JSON content:\n%s", json.dumps(prog, indent=2))
 
-
-
-    prog_name = program_name_from_input(input_file)
-
     # Process each function to form basic blocks
+    program : List[BlockInfo] = []
     for func in prog['functions']:
         blks = form_blocks(func["instrs"], func["name"])
-        logger.info("Function '%s' has %d blocks.", func["name"], len(blks.blocks))
+        logger.debug("Function '%s' has %d blocks.", func["name"], len(blks.label_map))
+
+        if args.dce:
+            simple_dce(blks)
+            logger.debug("Performed simple dead code elimination on function '%s'.", func["name"])
+            for block in blks.label_map.values():
+                local_dce(block)
 
         # Process basc blocks to form a Control Flow Graph (CFG)
         form_cfg(blks)
-        logger.info("Formed CFG for function '%s'.", func["name"])
-        if logger.isEnabledFor(logging.INFO):
+        logger.debug("Formed CFG for function '%s'.", func["name"])
+        if args.cfg_out:
             print_cfg(blks)
+            dot = cfg_to_dot(blks, func["name"])
+            print(dot)
 
-        dot = cfg_to_dot(blks, func["name"])
-        print(dot)
+        program.append(blks)
+
+    if args.show_instrs:
+        output_json_prog(program)
 
     return 0
 
@@ -268,6 +352,12 @@ if __name__ == "__main__":
         help="Path to the input JSON file (reads stdin if omitted or '-')")
     parser.add_argument("--log-level", type=parse_log_level, default=logging.INFO,
         help="Logging verbosity (debug|info|warning|error|critical or d|i|w|e|c)")
+    parser.add_argument("--dce", action="store_true", 
+        help="Perform simple dead code elimination on basic blocks")
+    parser.add_argument("--cfg-out", action="store_true",
+        help="Output the control flow graph in DOT format")
+    parser.add_argument("--show-instrs", action="store_true",
+        help="Output to stdout the program json")
     args = parser.parse_args()
 
     logging.basicConfig(
