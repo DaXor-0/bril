@@ -45,13 +45,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--list-passes", action="store_true",
                    help="List available passes and exit.")
     p.add_argument("--passes", action="append", default=[],
-                   help="Comma-separated pipeline passes (repeatable). Example: --passes dce-local,lvn")
+                   help="Comma-separated pipeline passes (repeatable). Example: --passes dce-local,lvn-const")
 
     # Convenience flags (expand into passes)
     p.add_argument("--dce", choices=["local", "global", "both"],
                    help="Convenience: add DCE pass (local/global/both) to the pipeline.")
-    p.add_argument("--lvn", action="store_true",
-                   help="Convenience: add 'lvn' to the pipeline.")
+    p.add_argument("--lvn", choices=["basic", "const"],
+                   help="Convenience: add LVN pass (basic/const-prop) to the pipeline.")
 
     # Outputs (OFF by default)
     p.add_argument("--emit-json", action="store_true",
@@ -96,7 +96,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             pipeline.append("dce")
 
     if args.lvn:
-        pipeline.append("lvn")
+        if args.lvn == "basic":
+            pipeline.append("lvn")
+        elif args.lvn == "const":
+            pipeline.append("lvn-const")
+        else:
+            logger.error("Invalid value for --lvn: %s", args.lvn)
+            return 1
 
     pipeline = dedupe_preserve_order(pipeline)
 

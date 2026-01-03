@@ -16,6 +16,7 @@ class LVNTable:
     expr2id: Dict[LVNExpr, int] = field(default_factory=dict)
     id2canon: Dict[int, str] = field(default_factory=dict)
     current_status: Dict[str, int] = field(default_factory=dict)
+    id2const: Dict[int, Any] = field(default_factory=dict) # To help with copy propagation
     next_id: int = 0
 
 
@@ -42,6 +43,7 @@ def _get_expr(op: str, instr: Instruction, lvn: LVNTable) -> LVNExpr:
     """
     if op == "const":
         return (op, (("c", instr["value"]),))
+    
     elif op == "id":
         src = instr["args"][0]
         return (op, (("v", _ensure_var_id(src, lvn)),))
@@ -54,7 +56,7 @@ def _get_expr(op: str, instr: Instruction, lvn: LVNTable) -> LVNExpr:
         raise ValueError(f"Unsupported operation for LVN: {op}")
 
 
-def local_value_numbering(block: List[Instruction]) -> None:
+def local_value_numbering(block: List[Instruction], const_prop: bool = False) -> None:
     """
     Local Value Numbering (LVN) within a single basic block.
 
@@ -101,8 +103,18 @@ def local_value_numbering(block: List[Instruction]) -> None:
         if op == "id":
             src = instr["args"][0]
             src_vid = _ensure_var_id(src, lvn)
-            canon = lvn.id2canon.get(src_vid, src)
 
+            # Perform constant propagation if enabled
+            const_val = lvn.id2const.get(src_vid) if const_prop else None
+            if const_val is not None:
+                logger.info("LVN Const Prop: Rewriting instruction %s to const %s", instr, const_val)
+                instr["op"] = "const"
+                instr.pop("args", None)
+                instr["value"] = const_val
+                lvn.current_status[dest] = src_vid
+                continue
+
+            canon = lvn.id2canon.get(src_vid, src)
             if lvn.current_status.get(canon) == src_vid:
                 instr["args"] = [canon]
 
@@ -123,6 +135,10 @@ def local_value_numbering(block: List[Instruction]) -> None:
 
             lvn.current_status[dest] = expr_id
             lvn.id2canon[expr_id] = dest
+
+            if op == "const" and const_prop:
+                lvn.id2const[expr_id] = instr["value"]
+
             continue
 
         canon_var = lvn.id2canon[expr_id] 

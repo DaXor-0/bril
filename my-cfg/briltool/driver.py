@@ -24,13 +24,14 @@ PASS_REGISTRY: Dict[str, PassSpec] = {
     "dce-local": PassSpec("dce-local", "Local DCE (per-block dead-store elimination).", dce_local_only),
     "dce-global": PassSpec("dce-global", "Global simple DCE (unused dest removal to fixed point).", dce_global_only),
     "dce": PassSpec("dce", "DCE both (global simple DCE then local DCE).", dce_both),
-    "lvn": PassSpec("lvn", "Local value numbering (per basic block).", lambda blks: _run_lvn(blks)),
+    "lvn": PassSpec("lvn", "Local value numbering (per basic block).", lambda blks: _run_lvn(blks, const_prop=False)),
+    "lvn-const": PassSpec("lvn-const", "Local value numbering with constant propagation (per basic block).", lambda blks: _run_lvn(blks, const_prop=True)),
 }
 
 
-def _run_lvn(blks: BlockInfo) -> None:
+def _run_lvn(blks: BlockInfo, const_prop: bool) -> None:
     for block in blks.label_map.values():
-        local_value_numbering(block)
+        local_value_numbering(block, const_prop=const_prop)
 
 
 def list_passes_text() -> str:
