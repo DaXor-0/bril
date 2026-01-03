@@ -98,3 +98,4 @@ def dce_both(blks: BlockInfo) -> None:
     simple_dce(blks)
     for block in blks.label_map.values():
         local_dce(block)
+

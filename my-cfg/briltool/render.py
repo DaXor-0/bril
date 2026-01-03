@@ -56,3 +56,4 @@ def cfg_to_dot(blks: BlockInfo, func_name: str, *, show_instrs: bool = False) ->
 
     lines.append("}")
     return "\n".join(lines)
+

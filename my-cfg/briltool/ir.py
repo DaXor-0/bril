@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, TypeAlias
 Instruction: TypeAlias = Dict[str, Any]
 
 TERMINATORS = {"jmp", "br", "ret"}
+COMMUTATIVE = {"add", "mul"}
 
 
 def is_label(instr: Instruction) -> bool:
@@ -38,3 +39,4 @@ class BlockInfo:
     function_meta: Dict[str, Any] = field(default_factory=dict)
     successors: Dict[str, List[str]] = field(default_factory=dict)
     predecessors: Dict[str, List[str]] = field(default_factory=dict)
+

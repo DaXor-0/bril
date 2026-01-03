@@ -99,3 +99,4 @@ def form_cfg(blks: BlockInfo) -> None:
     for label in blks.label_map:
         blks.predecessors.setdefault(label, [])
         blks.successors.setdefault(label, [])
+

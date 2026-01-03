@@ -117,3 +117,4 @@ def main(argv: Optional[List[str]] = None) -> int:
         blocks_show_instrs=args.blocks_show_instrs,
         emit_json=args.emit_json,
     )
+

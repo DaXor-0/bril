@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, TypeAlias
 
-from ..ir import Instruction, TERMINATORS
+from ..ir import Instruction, TERMINATORS, COMMUTATIVE
+
+logger = logging.getLogger(__name__)
 
 LVNExpr: TypeAlias = Tuple[str, Tuple[Any, ...]]
 
@@ -31,8 +34,10 @@ def _get_expr(op: str, instr: Instruction, lvn: LVNTable) -> LVNExpr:
     elif op == "id":
         src = instr["args"][0]
         return (op, (("v", _ensure_var_id(src, lvn)),))
-    elif op in {"add", "mul", "sub", "div"}:
+    elif op in {"add", "mul", "sub", "div", "print"}:
         keys = tuple(("v", _ensure_var_id(a, lvn)) for a in instr["args"])
+        if op in COMMUTATIVE:
+            keys = tuple(sorted(keys))
         return (op, keys)
     else:
         raise ValueError(f"Unsupported operation for LVN: {op}")
@@ -44,6 +49,7 @@ def local_value_numbering(block: List[Instruction]) -> None:
     Only supports const/id/add/mul/sub/div and skips labels/terminators.
     """
     lvn = LVNTable()
+    logger.debug("Starting LVN on block %s", block)
 
     for instr in block:
         op = instr.get("op", None)
@@ -60,6 +66,7 @@ def local_value_numbering(block: List[Instruction]) -> None:
                 vid = _ensure_var_id(a, lvn)
                 canon = lvn.id2canon.get(vid, a)
                 if canon and lvn.current_status.get(canon) == vid:
+                    logger.info("Rewriting arg %s to canon %s for instruction %s", a, canon, instr)
                     new_args.append(canon)
                 else:
                     new_args.append(a)
@@ -78,6 +85,7 @@ def local_value_numbering(block: List[Instruction]) -> None:
 
             # Convert to id if canonical var currently represents the expr id
             if lvn.current_status.get(var) == expr_id:
+                logger.info("LVN CSE: Rewriting instruction %s to id %s", instr, var)
                 instr["op"] = "id"
                 instr["args"] = [var]
 
