@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from .ir import BlockInfo, Instruction, TERMINATORS, is_label
 
@@ -15,7 +15,7 @@ def block_id_generator(func_name: str):
         i += 1
 
 
-def form_blocks(body: List[Instruction], name: str) -> BlockInfo:
+def form_blocks(body: List[Instruction], name: str, *, function_meta: Optional[Dict[str, Any]] = None) -> BlockInfo:
     """
     Forms basic blocks from a list of instructions.
     1. A block starts at a label or function entry.
@@ -67,6 +67,7 @@ def form_blocks(body: List[Instruction], name: str) -> BlockInfo:
         function_name=name,
         label_map=label_map,
         label_to_block_id=label_to_block_id,
+        function_meta=function_meta or {},
     )
 
 

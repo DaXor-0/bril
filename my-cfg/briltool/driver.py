@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 from .cfg import form_blocks, form_cfg
 from .ir import BlockInfo
@@ -72,7 +72,11 @@ def output_json_prog(program: List[BlockInfo]) -> None:
     out = {"functions": []}
 
     for blks in program:
-        func_obj: Dict[str, Any] = {"name": blks.function_name, "instrs": []}
+        func_obj: Dict[str, Any] = {
+            "name": blks.function_name,
+            **{k: v for k, v in blks.function_meta.items() if k not in ("name", "instrs")},
+            "instrs": [],
+        }
 
         # Invert label map: block_id -> bril_label
         block_id_to_label = {block_id: label for label, block_id in blks.label_to_block_id.items()}
@@ -115,7 +119,8 @@ def run_driver(
     for func in prog["functions"]:
         name = func.get("name", "<unknown>")
         instrs = func.get("instrs", [])
-        blks = form_blocks(instrs, name)
+        func_meta = {k: v for k, v in func.items() if k not in ("name", "instrs")}
+        blks = form_blocks(instrs, name, function_meta=func_meta)
 
         # Run passes
         for p in pipeline:

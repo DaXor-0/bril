@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, TypeAlias
+from typing import Any, Dict, List, Optional, TypeAlias
 
 Instruction: TypeAlias = Dict[str, Any]
 
@@ -35,5 +35,6 @@ class BlockInfo:
     function_name: str
     label_map: Dict[str, List[Instruction]]
     label_to_block_id: Dict[str, str]
+    function_meta: Dict[str, Any] = field(default_factory=dict)
     successors: Dict[str, List[str]] = field(default_factory=dict)
     predecessors: Dict[str, List[str]] = field(default_factory=dict)

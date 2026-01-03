@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import List
 
-from .ir import BlockInfo, Instruction
+from .ir import BlockInfo
 
 
 def print_blocks(blks: BlockInfo, *, show_instrs: bool) -> None:
