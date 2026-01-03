@@ -1,1 +1,2 @@
-command = "bril2json < {filename} | python ../../my-cfg.py --dce --show-instr | brili -p"
+# command = "bril2json < {filename} | python ../../my-cfg.py --dce --show-instr | brili -p"
+command = "bril2json < {filename} | python ../../mycfg.py --passes dce --emit-json | brili -p"
